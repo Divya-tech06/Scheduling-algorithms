@@ -17,7 +17,7 @@
         <h1>Process Scheduling Algorithms Simulation</h1>
         <p class="hero-copy">
           Explore how CPU scheduling works with animated timelines, live ready queues,
-          beginner-friendly explanations, and side-by-side comparisons.
+          side-by-side comparisons, and animated timeline playback.
         </p>
       </div>
       <div class="hero-actions">
@@ -90,17 +90,13 @@
 
         <div class="button-row">
           <button id="startBtn" class="primary-button" type="button">Start Simulation</button>
+          <button id="previousBtn" class="secondary-button" type="button">Previous</button>
           <button id="pauseBtn" class="secondary-button" type="button">Pause</button>
           <button id="resumeBtn" class="secondary-button" type="button">Resume</button>
           <button id="resetBtn" class="ghost-button" type="button">Reset</button>
         </div>
 
         <div class="control-grid">
-          <label class="toggle-card">
-            <span>Explain Mode</span>
-            <input id="explainMode" type="checkbox" checked>
-          </label>
-
           <label class="toggle-card">
             <span>Comparison Mode</span>
             <input id="comparisonMode" type="checkbox">
@@ -151,16 +147,6 @@
             </div>
             <div id="ganttChart" class="gantt-chart"></div>
           </article>
-
-          <article class="visual-card full-span">
-            <div class="card-title-row">
-              <h3>Explain Mode</h3>
-              <span>Step-by-step learning</span>
-            </div>
-            <div id="explanationBox" class="explanation-box">
-              Choose an algorithm and press Start Simulation to see scheduling decisions explained in simple language.
-            </div>
-          </article>
         </div>
       </section>
 
@@ -184,7 +170,6 @@
                 <th>CT</th>
                 <th>TAT</th>
                 <th>WT</th>
-                <th>RT</th>
               </tr>
             </thead>
             <tbody id="metricsTableBody"></tbody>

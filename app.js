@@ -24,6 +24,7 @@ const elements = {
   timeQuantum: document.getElementById("timeQuantum"),
   processTableBody: document.getElementById("processTableBody"),
   startBtn: document.getElementById("startBtn"),
+  previousBtn: document.getElementById("previousBtn"),
   pauseBtn: document.getElementById("pauseBtn"),
   resumeBtn: document.getElementById("resumeBtn"),
   resetBtn: document.getElementById("resetBtn"),
@@ -31,7 +32,6 @@ const elements = {
   applyCountBtn: document.getElementById("applyCountBtn"),
   addRowBtn: document.getElementById("addRowBtn"),
   randomBtn: document.getElementById("randomBtn"),
-  explainMode: document.getElementById("explainMode"),
   comparisonMode: document.getElementById("comparisonMode"),
   speedControl: document.getElementById("speedControl"),
   ganttChart: document.getElementById("ganttChart"),
@@ -41,7 +41,6 @@ const elements = {
   cpuCard: document.getElementById("cpuCard"),
   cpuProcessLabel: document.getElementById("cpuProcessLabel"),
   cpuMetaLabel: document.getElementById("cpuMetaLabel"),
-  explanationBox: document.getElementById("explanationBox"),
   metricsTableBody: document.getElementById("metricsTableBody"),
   summaryCards: document.getElementById("summaryCards"),
   algorithmBadge: document.getElementById("algorithmBadge"),
@@ -78,7 +77,6 @@ function cloneProcess(process, index) {
     completion: 0,
     turnaround: 0,
     waiting: 0,
-    response: null,
     started: false,
     inQueue: false
   };
@@ -193,41 +191,10 @@ function segmentLabel(processId) {
   return processId === "IDLE" ? "Idle" : processId;
 }
 
-function explainSelection(algorithm, currentProcess, context = {}) {
-  if (!currentProcess) {
-    return context.idleReason || "CPU is idle because no process is available right now.";
-  }
-
-  switch (algorithm) {
-    case "FCFS":
-      return `${currentProcess.id} selected because it arrived first among the waiting processes.`;
-    case "SJF":
-      return `${currentProcess.id} selected because it has the shortest burst time among available processes.`;
-    case "SRTF":
-      return context.preemptedBy
-        ? `${currentProcess.id} preempted ${context.preemptedBy} because it now has the shortest remaining time.`
-        : `${currentProcess.id} is running because it has the shortest remaining time right now.`;
-    case "RR":
-      if (context.quantumExpired) {
-        return `${currentProcess.id} gets the CPU next because the previous process used up its time quantum.`;
-      }
-      return `${currentProcess.id} selected from the front of the ready queue in Round Robin order.`;
-    case "PRIORITY_NP":
-      return `${currentProcess.id} selected because it has the highest priority among available processes. Lower number means higher priority.`;
-    case "PRIORITY_P":
-      return context.preemptedBy
-        ? `${currentProcess.id} preempted ${context.preemptedBy} because it has a higher priority. Lower number means higher priority.`
-        : `${currentProcess.id} is running because it has the highest priority right now.`;
-    default:
-      return `${currentProcess.id} is selected to run.`;
-  }
-}
-
 function finalizeMetrics(processes) {
   processes.forEach((process) => {
     process.turnaround = process.completion - process.arrival;
     process.waiting = process.turnaround - process.burst;
-    process.response = process.response ?? 0;
   });
 }
 
@@ -257,16 +224,14 @@ function buildTimelineSegments(frames) {
 function calculateSummary(processes) {
   const avgWaiting = processes.reduce((sum, p) => sum + p.waiting, 0) / processes.length || 0;
   const avgTurnaround = processes.reduce((sum, p) => sum + p.turnaround, 0) / processes.length || 0;
-  const avgResponse = processes.reduce((sum, p) => sum + p.response, 0) / processes.length || 0;
   return {
     avgWaiting,
     avgTurnaround,
-    avgResponse,
     totalCompletion: Math.max(...processes.map((p) => p.completion), 0)
   };
 }
 
-function recordFrame({ frames, time, running, queue, explanation, contextSwitch = false }) {
+function recordFrame({ frames, time, running, queue, contextSwitch = false }) {
   frames.push({
     time,
     running: running
@@ -277,7 +242,6 @@ function recordFrame({ frames, time, running, queue, explanation, contextSwitch 
         }
       : null,
     queue: queueSnapshot(queue, running),
-    explanation,
     contextSwitch
   });
 }
@@ -296,7 +260,6 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
   let currentProcess = null;
   let previousProcessId = null;
   let rrSlice = 0;
-  let pendingContext = {};
 
   function enqueueArrivals() {
     while (incomingIndex < total && processes[incomingIndex].arrival <= time) {
@@ -347,7 +310,6 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
       if (next && currentProcess && next.id !== currentProcess.id) {
         readyQueue.push(currentProcess);
         currentProcess.inQueue = true;
-        pendingContext.preemptedBy = currentProcess.id;
         currentProcess = next;
         removeFromQueue(next);
         currentProcess.inQueue = false;
@@ -364,7 +326,6 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
       if (next && currentProcess && next.id !== currentProcess.id) {
         readyQueue.push(currentProcess);
         currentProcess.inQueue = true;
-        pendingContext.preemptedBy = currentProcess.id;
         currentProcess = next;
         removeFromQueue(next);
         currentProcess.inQueue = false;
@@ -386,7 +347,6 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
         time,
         running: null,
         queue: readyQueue,
-        explanation: "CPU is idle because no process has arrived and entered the ready queue yet.",
         contextSwitch: previousProcessId !== "IDLE"
       });
       previousProcessId = "IDLE";
@@ -396,10 +356,8 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
 
     if (!currentProcess.started) {
       currentProcess.started = true;
-      currentProcess.response = time - currentProcess.arrival;
     }
 
-    const explanation = explainSelection(algorithm, currentProcess, pendingContext);
     const contextSwitch = previousProcessId !== currentProcess.id;
 
     recordFrame({
@@ -407,12 +365,10 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
       time,
       running: currentProcess,
       queue: readyQueue,
-      explanation,
       contextSwitch
     });
 
     previousProcessId = currentProcess.id;
-    pendingContext = {};
     currentProcess.remaining -= 1;
     time += 1;
     rrSlice += algorithm === "RR" ? 1 : 0;
@@ -433,7 +389,6 @@ function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
       currentProcess.inQueue = true;
       currentProcess = null;
       rrSlice = 0;
-      pendingContext.quantumExpired = true;
     }
   }
 
@@ -524,25 +479,19 @@ function renderMetrics(result) {
       <td>${process.completion}</td>
       <td>${process.turnaround}</td>
       <td>${process.waiting}</td>
-      <td>${process.response}</td>
     `;
     elements.metricsTableBody.appendChild(row);
   });
 
-  const { avgWaiting, avgTurnaround, avgResponse, totalCompletion } = result.summary;
+  const { avgWaiting, avgTurnaround, totalCompletion } = result.summary;
   const cards = [
     ["Average Waiting Time", avgWaiting.toFixed(2)],
     ["Average Turnaround Time", avgTurnaround.toFixed(2)],
-    ["Average Response Time", avgResponse.toFixed(2)],
     ["Total Completion Time", totalCompletion.toFixed(0)]
   ];
   elements.summaryCards.innerHTML = cards
     .map(([label, value]) => `<div class="summary-card"><span>${label}</span><strong>${value}</strong></div>`)
     .join("");
-}
-
-function renderExplanation(text) {
-  elements.explanationBox.textContent = elements.explainMode.checked ? text : "Explain Mode is turned off.";
 }
 
 function renderComparison(processes, timeQuantum) {
@@ -579,7 +528,6 @@ function renderComparison(processes, timeQuantum) {
       <h3>${algorithmLabels[result.algorithm]}${card.classList.contains("best") ? " • Best WT" : ""}</h3>
       <div class="comparison-metric">Average Waiting Time: ${result.summary.avgWaiting.toFixed(2)}</div>
       <div class="comparison-metric">Average Turnaround Time: ${result.summary.avgTurnaround.toFixed(2)}</div>
-      <div class="comparison-metric">Average Response Time: ${result.summary.avgResponse.toFixed(2)}</div>
       <div class="mini-gantt">${miniGantt}</div>
     `;
     elements.comparisonResults.appendChild(card);
@@ -599,13 +547,7 @@ function stopPlayback() {
   }
 }
 
-function resetLiveView() {
-  stopPlayback();
-  state.isPaused = false;
-  state.isRunning = false;
-  state.frames = [];
-  state.currentFrameIndex = 0;
-  state.currentResult = null;
+function renderPlaybackIdleState() {
   elements.currentTimeLabel.textContent = "Time: 0";
   elements.cpuCard.className = "cpu-card idle";
   elements.cpuProcessLabel.textContent = "Idle";
@@ -613,13 +555,31 @@ function resetLiveView() {
   elements.readyQueue.className = "queue-strip empty";
   elements.readyQueue.textContent = "Ready queue is empty";
   elements.queueCountLabel.textContent = "0 processes";
+  renderGantt(state.currentResult?.segments ?? []);
+}
+
+function resetLiveView() {
+  stopPlayback();
+  state.isPaused = false;
+  state.isRunning = false;
+  state.frames = [];
+  state.currentFrameIndex = 0;
+  state.currentResult = null;
+  renderPlaybackIdleState();
   elements.metricsTableBody.innerHTML = "";
   elements.summaryCards.innerHTML = "";
   elements.comparisonResults.className = "comparison-results empty-state";
   elements.comparisonResults.textContent = "Enable Comparison Mode and start the simulation to run every algorithm on the same input.";
-  renderGantt([]);
-  renderExplanation("Choose an algorithm and press Start Simulation to see scheduling decisions explained in simple language.");
   setStatus("Ready");
+}
+
+function renderFrameAt(index) {
+  const frame = state.frames[index];
+  if (!frame || !state.currentResult) return;
+
+  renderCpu(frame);
+  renderQueue(frame.queue);
+  renderGantt(state.currentResult.segments, index);
 }
 
 function playNextFrame() {
@@ -629,15 +589,11 @@ function playNextFrame() {
   if (!frame) {
     setStatus("Completed");
     state.isRunning = false;
-    renderExplanation("Simulation complete. Check the metrics table and comparison section to review performance.");
     return;
   }
 
-  renderCpu(frame);
-  renderQueue(frame.queue);
-  renderGantt(state.currentResult.segments, state.currentFrameIndex);
-  renderExplanation(frame.explanation);
-  setStatus(`Running • ${state.currentResult.algorithm}`);
+  renderFrameAt(state.currentFrameIndex);
+  setStatus(`Running - ${state.currentResult.algorithm}`);
   state.currentFrameIndex += 1;
   state.timer = setTimeout(playNextFrame, playbackDelay());
 }
@@ -678,6 +634,26 @@ function resumeSimulation() {
   playNextFrame();
 }
 
+function showPreviousFrame() {
+  if (!state.currentResult || state.currentFrameIndex === 0) return;
+
+  stopPlayback();
+  state.isPaused = true;
+  state.isRunning = false;
+
+  if (state.currentFrameIndex === 1) {
+    state.currentFrameIndex = 0;
+    renderPlaybackIdleState();
+    setStatus(`Paused - ${state.currentResult.algorithm}`);
+    return;
+  }
+
+  const targetIndex = state.currentFrameIndex - 2;
+  state.currentFrameIndex = targetIndex + 1;
+  renderFrameAt(targetIndex);
+  setStatus(`Paused - ${state.currentResult.algorithm}`);
+}
+
 function randomProcesses() {
   const count = Number(elements.processCount.value) || 5;
   const processes = Array.from({ length: count }, (_, index) => ({
@@ -708,19 +684,13 @@ function initialize() {
     resetLiveView();
   });
   elements.startBtn.addEventListener("click", startSimulation);
+  elements.previousBtn.addEventListener("click", showPreviousFrame);
   elements.pauseBtn.addEventListener("click", pauseSimulation);
   elements.resumeBtn.addEventListener("click", resumeSimulation);
   elements.resetBtn.addEventListener("click", resetLiveView);
   elements.algorithmSelect.addEventListener("change", () => {
     elements.algorithmBadge.textContent = `Algorithm: ${algorithmLabels[elements.algorithmSelect.value]}`;
     resetLiveView();
-  });
-  elements.explainMode.addEventListener("change", () => {
-    if (state.currentFrameIndex > 0 && state.frames[state.currentFrameIndex - 1]) {
-      renderExplanation(state.frames[state.currentFrameIndex - 1].explanation);
-    } else if (!elements.explainMode.checked) {
-      renderExplanation("");
-    }
   });
   elements.comparisonMode.addEventListener("change", () => {
     if (state.currentResult) {
@@ -738,3 +708,4 @@ function initialize() {
 }
 
 initialize();
+

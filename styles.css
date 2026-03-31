@@ -395,16 +395,6 @@ tbody tr:last-child td {
   letter-spacing: 0.04em;
 }
 
-.explanation-box {
-  min-height: 92px;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(242, 193, 78, 0.14);
-  border: 1px solid rgba(242, 193, 78, 0.36);
-  color: var(--text);
-  line-height: 1.55;
-}
-
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
