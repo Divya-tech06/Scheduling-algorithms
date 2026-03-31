@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPU Scheduling Visual Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Operating Systems Lab</p>
+        <h1>Process Scheduling Algorithms Simulation</h1>
+        <p class="hero-copy">
+          Explore how CPU scheduling works with animated timelines, live ready queues,
+          beginner-friendly explanations, and side-by-side comparisons.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <button id="randomBtn" class="ghost-button" type="button">Random Processes</button>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="panel input-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Setup</p>
+            <h2>Input Section</h2>
+          </div>
+          <button id="loadSampleBtn" class="secondary-button" type="button">Load Sample</button>
+        </div>
+
+        <div class="top-controls">
+          <label>
+            Number of Processes
+            <input id="processCount" type="number" min="1" max="10" value="5">
+          </label>
+
+          <label>
+            Algorithm
+            <select id="algorithmSelect">
+              <option value="FCFS">FCFS</option>
+              <option value="SJF">SJF (Non-Preemptive)</option>
+              <option value="SRTF">SRTF (Preemptive)</option>
+              <option value="RR">Round Robin</option>
+              <option value="PRIORITY_NP">Priority (Non-Preemptive)</option>
+              <option value="PRIORITY_P">Priority (Preemptive)</option>
+            </select>
+          </label>
+
+          <label>
+            Time Quantum
+            <input id="timeQuantum" type="number" min="1" value="2">
+          </label>
+        </div>
+
+        <div class="input-toolbar">
+          <button id="applyCountBtn" class="secondary-button" type="button">Update Rows</button>
+          <button id="addRowBtn" class="ghost-button" type="button">Add Row</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th>Arrival</th>
+                <th>Burst</th>
+                <th>Priority</th>
+                <th>Remove</th>
+              </tr>
+            </thead>
+            <tbody id="processTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel controls-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Playback</p>
+            <h2>Simulation Controls</h2>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="startBtn" class="primary-button" type="button">Start Simulation</button>
+          <button id="pauseBtn" class="secondary-button" type="button">Pause</button>
+          <button id="resumeBtn" class="secondary-button" type="button">Resume</button>
+          <button id="resetBtn" class="ghost-button" type="button">Reset</button>
+        </div>
+
+        <div class="control-grid">
+          <label class="toggle-card">
+            <span>Explain Mode</span>
+            <input id="explainMode" type="checkbox" checked>
+          </label>
+
+          <label class="toggle-card">
+            <span>Comparison Mode</span>
+            <input id="comparisonMode" type="checkbox">
+          </label>
+
+          <label class="speed-card">
+            <span>Speed Control</span>
+            <input id="speedControl" type="range" min="1" max="5" step="1" value="3">
+            <small>Slow to Fast</small>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel live-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Live View</p>
+            <h2>Simulation Visualization</h2>
+          </div>
+          <div id="statusBadge" class="status-badge">Ready</div>
+        </div>
+
+        <div class="live-grid">
+          <article class="visual-card">
+            <div class="card-title-row">
+              <h3>CPU Execution</h3>
+              <span id="currentTimeLabel">Time: 0</span>
+            </div>
+            <div id="cpuCard" class="cpu-card idle">
+              <div class="cpu-topline">CPU</div>
+              <div id="cpuProcessLabel" class="cpu-process">Idle</div>
+              <div id="cpuMetaLabel" class="cpu-meta">Waiting for simulation to begin</div>
+            </div>
+          </article>
+
+          <article class="visual-card">
+            <div class="card-title-row">
+              <h3>Ready Queue</h3>
+              <span id="queueCountLabel">0 processes</span>
+            </div>
+            <div id="readyQueue" class="queue-strip empty"></div>
+          </article>
+
+          <article class="visual-card full-span">
+            <div class="card-title-row">
+              <h3>Gantt Chart</h3>
+              <span id="algorithmBadge">Algorithm: FCFS</span>
+            </div>
+            <div id="ganttChart" class="gantt-chart"></div>
+          </article>
+
+          <article class="visual-card full-span">
+            <div class="card-title-row">
+              <h3>Explain Mode</h3>
+              <span>Step-by-step learning</span>
+            </div>
+            <div id="explanationBox" class="explanation-box">
+              Choose an algorithm and press Start Simulation to see scheduling decisions explained in simple language.
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel metrics-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Results</p>
+            <h2>Output Metrics</h2>
+          </div>
+        </div>
+
+        <div id="summaryCards" class="summary-cards"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th>AT</th>
+                <th>BT</th>
+                <th>Priority</th>
+                <th>CT</th>
+                <th>TAT</th>
+                <th>WT</th>
+                <th>RT</th>
+              </tr>
+            </thead>
+            <tbody id="metricsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel comparison-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">Comparison</p>
+            <h2>All Algorithms</h2>
+          </div>
+        </div>
+        <div id="comparisonResults" class="comparison-results empty-state">
+          Enable Comparison Mode and start the simulation to run every algorithm on the same input.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
