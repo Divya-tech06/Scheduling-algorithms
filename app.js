@@ -346,11 +346,16 @@ function start() {
 
 function randomize() {
   const n = Math.max(1, Number(el.processCount.value) || 5);
+  const priorities = Array.from({ length: n }, (_, i) => i + 1);
+  for (let i = priorities.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [priorities[i], priorities[j]] = [priorities[j], priorities[i]];
+  }
   const list = Array.from({ length: n }, (_, i) => ({
     id: `P${i + 1}`,
     arrival: Math.floor(Math.random() * Math.min(n + 2, 8)),
     burst: Math.floor(Math.random() * 8) + 1,
-    priority: Math.floor(Math.random() * 5) + 1,
+    priority: priorities[i],
     i
   })).sort(byArrival);
   renderTable(list);
