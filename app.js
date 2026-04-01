@@ -29,7 +29,6 @@ const el = {
   loadSampleBtn: $("loadSampleBtn"),
   applyCountBtn: $("applyCountBtn"),
   addRowBtn: $("addRowBtn"),
-  randomBtn: $("randomBtn"),
   ganttChart: $("ganttChart"),
   readyQueue: $("readyQueue"),
   queueCountLabel: $("queueCountLabel"),
@@ -343,23 +342,6 @@ function start() {
   tick();
 }
 
-function randomize() {
-  const n = Math.max(1, Number(el.processCount.value) || 5);
-  const priorities = Array.from({ length: n }, (_, i) => i + 1);
-  for (let i = priorities.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [priorities[i], priorities[j]] = [priorities[j], priorities[i]];
-  }
-  const list = Array.from({ length: n }, (_, i) => ({
-    id: `P${i + 1}`,
-    arrival: Math.floor(Math.random() * Math.min(n + 2, 8)),
-    burst: Math.floor(Math.random() * 8) + 1,
-    priority: priorities[i],
-    i
-  })).sort(byArrival);
-  renderTable(list);
-}
-
 renderTable(sample);
 resetView();
 el.algorithmBadge.textContent = `Algorithm: ${names[el.algorithmSelect.value]}`;
@@ -367,7 +349,6 @@ el.algorithmBadge.textContent = `Algorithm: ${names[el.algorithmSelect.value]}`;
 el.loadSampleBtn.onclick = () => { renderTable(sample); resetView(); };
 el.applyCountBtn.onclick = resizeTable;
 el.addRowBtn.onclick = () => { el.processTableBody.appendChild(row()); syncCount(); };
-el.randomBtn.onclick = () => { randomize(); resetView(); };
 el.startBtn.onclick = start;
 el.pauseBtn.onclick = () => { if (state.running) { state.paused = true; stop(); status("Paused"); } };
 el.resumeBtn.onclick = () => { if (state.result && state.paused) { state.paused = false; state.running = true; tick(); } };
