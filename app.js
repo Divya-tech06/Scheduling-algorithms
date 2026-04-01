@@ -30,7 +30,6 @@ const el = {
   applyCountBtn: $("applyCountBtn"),
   addRowBtn: $("addRowBtn"),
   randomBtn: $("randomBtn"),
-  speedControl: $("speedControl"),
   ganttChart: $("ganttChart"),
   readyQueue: $("readyQueue"),
   queueCountLabel: $("queueCountLabel"),
@@ -288,7 +287,7 @@ function renderMetrics(result) {
 }
 
 function delay() {
-  return ({ 1: 1400, 2: 1000, 3: 700, 4: 400, 5: 180 })[Number(el.speedControl.value)] || 700;
+  return 1400;
 }
 
 function stop() {
@@ -386,10 +385,4 @@ el.resetBtn.onclick = resetView;
 el.algorithmSelect.onchange = () => {
   el.algorithmBadge.textContent = `Algorithm: ${names[el.algorithmSelect.value]}`;
   resetView();
-};
-el.speedControl.oninput = () => {
-  if (state.running && !state.paused) {
-    stop();
-    tick();
-  }
 };
