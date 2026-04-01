@@ -1,7 +1,37 @@
 const sample = [{ id: "P1", arrival: 0, burst: 3, priority: 5 }, { id: "P2", arrival: 2, burst: 6, priority: 3 }, { id: "P3", arrival: 4, burst: 4, priority: 1 }, { id: "P4", arrival: 6, burst: 5, priority: 4 }, { id: "P5", arrival: 8, burst: 2, priority: 2 }];
 const names = { FCFS: "FCFS", SJF: "SJF (Non-Preemptive)", SRTF: "SRTF (Preemptive)", RR: "Round Robin", PRIORITY_NP: "Priority (Non-Preemptive)", PRIORITY_P: "Priority (Preemptive)" };
-const $ = (id) => document.getElementById(id);
-const el = ["processCount", "algorithmSelect", "timeQuantum", "processTableBody", "startBtn", "previousBtn", "pauseBtn", "resumeBtn", "resetBtn", "loadSampleBtn", "applyCountBtn", "addRowBtn", "ganttChart", "readyQueue", "queueCountLabel", "currentTimeLabel", "cpuCard", "cpuProcessLabel", "cpuMetaLabel", "metricsTableBody", "summaryCards", "algorithmBadge", "statusBadge"].reduce((o, id) => ((o[id] = $(id)), o), {});
+const el = {
+  processCount: document.getElementById("processCount"),
+  algorithmSelect: document.getElementById("algorithmSelect"),
+  timeQuantum: document.getElementById("timeQuantum"),
+
+  processTableBody: document.getElementById("processTableBody"),
+
+  startBtn: document.getElementById("startBtn"),
+  previousBtn: document.getElementById("previousBtn"),
+  pauseBtn: document.getElementById("pauseBtn"),
+  resumeBtn: document.getElementById("resumeBtn"),
+  resetBtn: document.getElementById("resetBtn"),
+
+  loadSampleBtn: document.getElementById("loadSampleBtn"),
+  applyCountBtn: document.getElementById("applyCountBtn"),
+  addRowBtn: document.getElementById("addRowBtn"),
+
+  ganttChart: document.getElementById("ganttChart"),
+  readyQueue: document.getElementById("readyQueue"),
+  queueCountLabel: document.getElementById("queueCountLabel"),
+
+  currentTimeLabel: document.getElementById("currentTimeLabel"),
+  cpuCard: document.getElementById("cpuCard"),
+  cpuProcessLabel: document.getElementById("cpuProcessLabel"),
+  cpuMetaLabel: document.getElementById("cpuMetaLabel"),
+
+  metricsTableBody: document.getElementById("metricsTableBody"),
+  summaryCards: document.getElementById("summaryCards"),
+
+  algorithmBadge: document.getElementById("algorithmBadge"),
+  statusBadge: document.getElementById("statusBadge")
+};
 const state = { timer: null, paused: false, running: false, frame: 0, result: null }, colors = {}, delay = 1400;
 const cmp = {
   arrival: (a, b) => a.arrival - b.arrival || a.i - b.i,
