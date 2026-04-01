@@ -1,4 +1,4 @@
-const sampleProcesses = [
+const sample = [
   { id: "P1", arrival: 0, burst: 7, priority: 2 },
   { id: "P2", arrival: 2, burst: 4, priority: 1 },
   { id: "P3", arrival: 4, burst: 1, priority: 4 },
@@ -6,7 +6,7 @@ const sampleProcesses = [
   { id: "P5", arrival: 6, burst: 6, priority: 3 }
 ];
 
-const algorithmLabels = {
+const names = {
   FCFS: "FCFS",
   SJF: "SJF (Non-Preemptive)",
   SRTF: "SRTF (Preemptive)",
@@ -15,697 +15,376 @@ const algorithmLabels = {
   PRIORITY_P: "Priority (Preemptive)"
 };
 
-const comparisonAlgorithms = ["FCFS", "SJF", "SRTF", "RR", "PRIORITY_NP", "PRIORITY_P"];
-const processColors = {};
-
-const elements = {
-  processCount: document.getElementById("processCount"),
-  algorithmSelect: document.getElementById("algorithmSelect"),
-  timeQuantum: document.getElementById("timeQuantum"),
-  processTableBody: document.getElementById("processTableBody"),
-  startBtn: document.getElementById("startBtn"),
-  previousBtn: document.getElementById("previousBtn"),
-  pauseBtn: document.getElementById("pauseBtn"),
-  resumeBtn: document.getElementById("resumeBtn"),
-  resetBtn: document.getElementById("resetBtn"),
-  loadSampleBtn: document.getElementById("loadSampleBtn"),
-  applyCountBtn: document.getElementById("applyCountBtn"),
-  addRowBtn: document.getElementById("addRowBtn"),
-  randomBtn: document.getElementById("randomBtn"),
-  comparisonMode: document.getElementById("comparisonMode"),
-  speedControl: document.getElementById("speedControl"),
-  ganttChart: document.getElementById("ganttChart"),
-  readyQueue: document.getElementById("readyQueue"),
-  queueCountLabel: document.getElementById("queueCountLabel"),
-  currentTimeLabel: document.getElementById("currentTimeLabel"),
-  cpuCard: document.getElementById("cpuCard"),
-  cpuProcessLabel: document.getElementById("cpuProcessLabel"),
-  cpuMetaLabel: document.getElementById("cpuMetaLabel"),
-  metricsTableBody: document.getElementById("metricsTableBody"),
-  summaryCards: document.getElementById("summaryCards"),
-  algorithmBadge: document.getElementById("algorithmBadge"),
-  comparisonResults: document.getElementById("comparisonResults"),
-  statusBadge: document.getElementById("statusBadge")
+const $ = (id) => document.getElementById(id);
+const el = {
+  processCount: $("processCount"),
+  algorithmSelect: $("algorithmSelect"),
+  timeQuantum: $("timeQuantum"),
+  processTableBody: $("processTableBody"),
+  startBtn: $("startBtn"),
+  previousBtn: $("previousBtn"),
+  pauseBtn: $("pauseBtn"),
+  resumeBtn: $("resumeBtn"),
+  resetBtn: $("resetBtn"),
+  loadSampleBtn: $("loadSampleBtn"),
+  applyCountBtn: $("applyCountBtn"),
+  addRowBtn: $("addRowBtn"),
+  randomBtn: $("randomBtn"),
+  speedControl: $("speedControl"),
+  ganttChart: $("ganttChart"),
+  readyQueue: $("readyQueue"),
+  queueCountLabel: $("queueCountLabel"),
+  currentTimeLabel: $("currentTimeLabel"),
+  cpuCard: $("cpuCard"),
+  cpuProcessLabel: $("cpuProcessLabel"),
+  cpuMetaLabel: $("cpuMetaLabel"),
+  metricsTableBody: $("metricsTableBody"),
+  summaryCards: $("summaryCards"),
+  algorithmBadge: $("algorithmBadge"),
+  statusBadge: $("statusBadge")
 };
 
-const state = {
-  timer: null,
-  isPaused: false,
-  isRunning: false,
-  frames: [],
-  currentFrameIndex: 0,
-  currentResult: null
-};
+const state = { timer: null, paused: false, running: false, frame: 0, result: null };
+const colors = {};
 
-function uid() {
-  return Math.random().toString(36).slice(2, 9);
+const byArrival = (a, b) => a.arrival - b.arrival || a.i - b.i;
+const byBurst = (a, b) => a.burst - b.burst || byArrival(a, b);
+const byRemaining = (a, b) => a.remaining - b.remaining || byArrival(a, b);
+const byPriority = (a, b) => a.priority - b.priority || byArrival(a, b);
+const byPriorityRemaining = (a, b) => a.priority - b.priority || a.remaining - b.remaining || byArrival(a, b);
+
+function color(id) {
+  colors[id] ??= `hsl(${Object.keys(colors).length * 61 % 360}, 68%, 52%)`;
+  return colors[id];
 }
 
-function getProcessColor(processId) {
-  if (!processColors[processId]) {
-    const hue = (Object.keys(processColors).length * 61) % 360;
-    processColors[processId] = `hsl(${hue}, 68%, 52%)`;
-  }
-  return processColors[processId];
+function status(text) {
+  el.statusBadge.textContent = text;
 }
 
-function cloneProcess(process, index) {
-  return {
-    ...process,
-    sourceIndex: index,
-    remaining: process.burst,
-    completion: 0,
-    turnaround: 0,
-    waiting: 0,
-    started: false,
-    inQueue: false
-  };
+function syncCount() {
+  el.processCount.value = el.processTableBody.children.length || 1;
 }
 
-function setStatus(text) {
-  elements.statusBadge.textContent = text;
-}
-
-function createRow(process = {}) {
-  const row = document.createElement("tr");
-  row.dataset.rowId = uid();
-  row.innerHTML = `
-    <td><input type="text" value="${process.id ?? `P${elements.processTableBody.children.length + 1}`}" class="pid-input"></td>
-    <td><input type="number" min="0" value="${process.arrival ?? 0}" class="arrival-input"></td>
-    <td><input type="number" min="1" value="${process.burst ?? 1}" class="burst-input"></td>
-    <td><input type="number" min="1" value="${process.priority ?? 1}" class="priority-input"></td>
+function row(p = {}, n = el.processTableBody.children.length + 1) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="text" class="pid-input" value="${p.id ?? `P${n}`}"></td>
+    <td><input type="number" class="arrival-input" min="0" value="${p.arrival ?? 0}"></td>
+    <td><input type="number" class="burst-input" min="1" value="${p.burst ?? 1}"></td>
+    <td><input type="number" class="priority-input" min="1" value="${p.priority ?? 1}"></td>
     <td><button type="button" class="remove-row-btn">Remove</button></td>
   `;
-  row.querySelector(".remove-row-btn").addEventListener("click", () => {
-    row.remove();
-    syncProcessCount();
-  });
-  return row;
+  tr.querySelector("button").onclick = () => {
+    tr.remove();
+    syncCount();
+  };
+  return tr;
 }
 
-function renderTable(processes) {
-  elements.processTableBody.innerHTML = "";
-  processes.forEach((process) => {
-    elements.processTableBody.appendChild(createRow(process));
-  });
-  syncProcessCount();
+function renderTable(list) {
+  el.processTableBody.innerHTML = "";
+  list.forEach((p, i) => el.processTableBody.appendChild(row(p, i + 1)));
+  syncCount();
 }
 
-function syncProcessCount() {
-  elements.processCount.value = elements.processTableBody.children.length || 1;
+function resizeTable() {
+  const want = Math.max(1, Number(el.processCount.value) || 1);
+  while (el.processTableBody.children.length < want) el.processTableBody.appendChild(row());
+  while (el.processTableBody.children.length > want) el.processTableBody.lastElementChild.remove();
+  syncCount();
 }
 
-function adjustRowsToCount() {
-  const desired = Number(elements.processCount.value);
-  const current = elements.processTableBody.children.length;
-
-  if (desired > current) {
-    for (let i = current; i < desired; i += 1) {
-      elements.processTableBody.appendChild(createRow());
-    }
-  } else if (desired < current) {
-    for (let i = current; i > desired; i -= 1) {
-      elements.processTableBody.lastElementChild?.remove();
-    }
-  }
-  syncProcessCount();
-}
-
-function getProcessesFromTable() {
-  const rows = [...elements.processTableBody.querySelectorAll("tr")];
-  return rows.map((row, index) => {
-    const id = row.querySelector(".pid-input").value.trim() || `P${index + 1}`;
-    return {
-      id,
-      arrival: Number(row.querySelector(".arrival-input").value),
-      burst: Number(row.querySelector(".burst-input").value),
-      priority: Number(row.querySelector(".priority-input").value)
-    };
-  }).map((process, index) => ({
-    ...process,
-    arrival: Number.isFinite(process.arrival) && process.arrival >= 0 ? process.arrival : 0,
-    burst: Number.isFinite(process.burst) && process.burst > 0 ? process.burst : 1,
-    priority: Number.isFinite(process.priority) && process.priority > 0 ? process.priority : 1,
-    sourceIndex: index
+function readTable() {
+  return [...el.processTableBody.rows].map((tr, i) => ({
+    id: tr.querySelector(".pid-input").value.trim() || `P${i + 1}`,
+    arrival: Math.max(0, Number(tr.querySelector(".arrival-input").value) || 0),
+    burst: Math.max(1, Number(tr.querySelector(".burst-input").value) || 1),
+    priority: Math.max(1, Number(tr.querySelector(".priority-input").value) || 1),
+    i
   }));
 }
 
-function compareByArrivalFCFS(a, b) {
-  if (a.arrival !== b.arrival) return a.arrival - b.arrival;
-  return a.sourceIndex - b.sourceIndex;
+function clone(list) {
+  return list.map((p) => ({ ...p, remaining: p.burst, completion: 0, waiting: 0, turnaround: 0, inQueue: false }));
 }
 
-function compareSjf(a, b) {
-  if (a.burst !== b.burst) return a.burst - b.burst;
-  return compareByArrivalFCFS(a, b);
+function snapshot(queue, running) {
+  return queue.filter((p) => p !== running).map(({ id, remaining, priority, arrival }) => ({ id, remaining, priority, arrival }));
 }
 
-function compareSrtf(a, b) {
-  if (a.remaining !== b.remaining) return a.remaining - b.remaining;
-  return compareByArrivalFCFS(a, b);
+function segments(frames) {
+  const out = [];
+  for (const f of frames) {
+    const id = f.running?.id || "IDLE";
+    const last = out[out.length - 1];
+    if (last?.id === id) last.end = f.time + 1;
+    else out.push({ id, start: f.time, end: f.time + 1 });
+  }
+  return out;
 }
 
-function comparePriority(a, b) {
-  if (a.priority !== b.priority) return a.priority - b.priority;
-  return compareByArrivalFCFS(a, b);
-}
-
-function comparePriorityRemaining(a, b) {
-  if (a.priority !== b.priority) return a.priority - b.priority;
-  if (a.remaining !== b.remaining) return a.remaining - b.remaining;
-  return compareByArrivalFCFS(a, b);
-}
-
-function queueSnapshot(queue, currentProcess) {
-  return queue
-    .filter((process) => !currentProcess || process.id !== currentProcess.id)
-    .map((process) => ({
-      id: process.id,
-      remaining: process.remaining,
-      priority: process.priority,
-      arrival: process.arrival
-    }));
-}
-
-function segmentLabel(processId) {
-  return processId === "IDLE" ? "Idle" : processId;
-}
-
-function finalizeMetrics(processes) {
-  processes.forEach((process) => {
-    process.turnaround = process.completion - process.arrival;
-    process.waiting = process.turnaround - process.burst;
-  });
-}
-
-function buildTimelineSegments(frames) {
-  const segments = [];
-  frames.forEach((frame) => {
-    const processId = frame.running?.id ?? "IDLE";
-    const last = segments[segments.length - 1];
-
-    if (last && last.processId === processId) {
-      last.end = frame.time + 1;
-      if (frame.contextSwitch) {
-        last.contextSwitch = true;
-      }
-    } else {
-      segments.push({
-        processId,
-        start: frame.time,
-        end: frame.time + 1,
-        contextSwitch: frame.contextSwitch
-      });
-    }
-  });
-  return segments;
-}
-
-function calculateSummary(processes) {
-  const avgWaiting = processes.reduce((sum, p) => sum + p.waiting, 0) / processes.length || 0;
-  const avgTurnaround = processes.reduce((sum, p) => sum + p.turnaround, 0) / processes.length || 0;
-  return {
-    avgWaiting,
-    avgTurnaround,
-    totalCompletion: Math.max(...processes.map((p) => p.completion), 0)
-  };
-}
-
-function recordFrame({ frames, time, running, queue, contextSwitch = false }) {
-  frames.push({
-    time,
-    running: running
-      ? {
-          id: running.id,
-          remaining: running.remaining,
-          priority: running.priority
-        }
-      : null,
-    queue: queueSnapshot(queue, running),
-    contextSwitch
-  });
-}
-
-function simulateAlgorithm(algorithm, inputProcesses, timeQuantum = 2) {
-  const processes = inputProcesses
-    .map((process, index) => cloneProcess({ ...process, sourceIndex: index }, index))
-    .sort(compareByArrivalFCFS);
-  const total = processes.length;
+function simulate(algorithm, list, quantum) {
+  const all = clone(list).sort(byArrival);
   const frames = [];
-  const completed = [];
-  const readyQueue = [];
+  const done = [];
+  const queue = [];
   let time = 0;
-  let completedCount = 0;
-  let incomingIndex = 0;
-  let currentProcess = null;
-  let previousProcessId = null;
-  let rrSlice = 0;
+  let next = 0;
+  let current = null;
+  let slice = 0;
 
-  function enqueueArrivals() {
-    while (incomingIndex < total && processes[incomingIndex].arrival <= time) {
-      const process = processes[incomingIndex];
-      if (!process.inQueue && process.remaining > 0 && process !== currentProcess) {
-        readyQueue.push(process);
-        process.inQueue = true;
+  const pushArrivals = () => {
+    while (next < all.length && all[next].arrival <= time) {
+      if (!all[next].inQueue && all[next] !== current && all[next].remaining > 0) {
+        all[next].inQueue = true;
+        queue.push(all[next]);
       }
-      incomingIndex += 1;
+      next += 1;
     }
-  }
+  };
 
-  function removeFromQueue(target) {
-    const index = readyQueue.findIndex((process) => process.id === target.id && process.sourceIndex === target.sourceIndex);
-    if (index >= 0) {
-      readyQueue.splice(index, 1);
+  const take = (sorter) => {
+    queue.sort(sorter);
+    current = queue.shift() || null;
+    if (current) current.inQueue = false;
+  };
+
+  while (done.length < all.length) {
+    pushArrivals();
+
+    if (algorithm === "FCFS" && !current) take(byArrival);
+    if (algorithm === "SJF" && !current) take(byBurst);
+    if (algorithm === "PRIORITY_NP" && !current) take(byPriority);
+    if (algorithm === "RR" && !current) {
+      current = queue.shift() || null;
+      if (current) current.inQueue = false;
+      slice = 0;
     }
-  }
-
-  function chooseNextNonPreemptive(compareFn) {
-    readyQueue.sort(compareFn);
-    const next = readyQueue.shift() || null;
-    if (next) next.inQueue = false;
-    return next;
-  }
-
-  function chooseNextRoundRobin() {
-    const next = readyQueue.shift() || null;
-    if (next) next.inQueue = false;
-    return next;
-  }
-
-  function chooseCurrent() {
-    if (algorithm === "FCFS" && !currentProcess) {
-      currentProcess = chooseNextNonPreemptive(compareByArrivalFCFS);
-    } else if (algorithm === "SJF" && !currentProcess) {
-      currentProcess = chooseNextNonPreemptive(compareSjf);
-    } else if (algorithm === "PRIORITY_NP" && !currentProcess) {
-      currentProcess = chooseNextNonPreemptive(comparePriority);
-    } else if (algorithm === "RR" && !currentProcess) {
-      currentProcess = chooseNextRoundRobin();
-      rrSlice = 0;
-    } else if (algorithm === "SRTF") {
-      const candidates = [...readyQueue];
-      if (currentProcess) candidates.push(currentProcess);
-      candidates.sort(compareSrtf);
-      const next = candidates[0] || null;
-      if (next && currentProcess && next.id !== currentProcess.id) {
-        readyQueue.push(currentProcess);
-        currentProcess.inQueue = true;
-        currentProcess = next;
-        removeFromQueue(next);
-        currentProcess.inQueue = false;
-      } else if (!currentProcess && next) {
-        currentProcess = next;
-        removeFromQueue(next);
-        currentProcess.inQueue = false;
-      }
-    } else if (algorithm === "PRIORITY_P") {
-      const candidates = [...readyQueue];
-      if (currentProcess) candidates.push(currentProcess);
-      candidates.sort(comparePriorityRemaining);
-      const next = candidates[0] || null;
-      if (next && currentProcess && next.id !== currentProcess.id) {
-        readyQueue.push(currentProcess);
-        currentProcess.inQueue = true;
-        currentProcess = next;
-        removeFromQueue(next);
-        currentProcess.inQueue = false;
-      } else if (!currentProcess && next) {
-        currentProcess = next;
-        removeFromQueue(next);
-        currentProcess.inQueue = false;
+    if (algorithm === "SRTF" || algorithm === "PRIORITY_P") {
+      const pool = current ? [...queue, current] : [...queue];
+      pool.sort(algorithm === "SRTF" ? byRemaining : byPriorityRemaining);
+      const best = pool[0] || null;
+      if (best && best !== current) {
+        if (current) {
+          current.inQueue = true;
+          queue.push(current);
+        }
+        current = best;
+        const at = queue.indexOf(best);
+        if (at >= 0) queue.splice(at, 1);
+        current.inQueue = false;
       }
     }
-  }
 
-  while (completedCount < total) {
-    enqueueArrivals();
-    chooseCurrent();
+    frames.push({
+      time,
+      running: current ? { id: current.id, remaining: current.remaining, priority: current.priority } : null,
+      queue: snapshot(queue, current)
+    });
 
-    if (!currentProcess) {
-      recordFrame({
-        frames,
-        time,
-        running: null,
-        queue: readyQueue,
-        contextSwitch: previousProcessId !== "IDLE"
-      });
-      previousProcessId = "IDLE";
+    if (!current) {
       time += 1;
       continue;
     }
 
-    if (!currentProcess.started) {
-      currentProcess.started = true;
-    }
-
-    const contextSwitch = previousProcessId !== currentProcess.id;
-
-    recordFrame({
-      frames,
-      time,
-      running: currentProcess,
-      queue: readyQueue,
-      contextSwitch
-    });
-
-    previousProcessId = currentProcess.id;
-    currentProcess.remaining -= 1;
+    current.remaining -= 1;
     time += 1;
-    rrSlice += algorithm === "RR" ? 1 : 0;
+    if (algorithm === "RR") slice += 1;
+    pushArrivals();
 
-    enqueueArrivals();
-
-    if (currentProcess.remaining === 0) {
-      currentProcess.completion = time;
-      completed.push(currentProcess);
-      completedCount += 1;
-      currentProcess = null;
-      rrSlice = 0;
+    if (current.remaining === 0) {
+      current.completion = time;
+      current.turnaround = current.completion - current.arrival;
+      current.waiting = current.turnaround - current.burst;
+      done.push(current);
+      current = null;
+      slice = 0;
       continue;
     }
 
-    if (algorithm === "RR" && rrSlice >= timeQuantum) {
-      readyQueue.push(currentProcess);
-      currentProcess.inQueue = true;
-      currentProcess = null;
-      rrSlice = 0;
+    if (algorithm === "RR" && slice >= quantum) {
+      current.inQueue = true;
+      queue.push(current);
+      current = null;
+      slice = 0;
     }
   }
 
-  finalizeMetrics(completed);
-  completed.sort(compareByArrivalFCFS);
-  return {
-    algorithm,
-    processes: completed,
-    frames,
-    segments: buildTimelineSegments(frames),
-    summary: calculateSummary(completed)
-  };
+  done.sort(byArrival);
+  const totalCompletion = Math.max(0, ...done.map((p) => p.completion));
+  const avgWaiting = done.reduce((s, p) => s + p.waiting, 0) / done.length || 0;
+  const avgTurnaround = done.reduce((s, p) => s + p.turnaround, 0) / done.length || 0;
+  return { algorithm, frames, segments: segments(frames), processes: done, summary: { totalCompletion, avgWaiting, avgTurnaround } };
 }
 
-function renderQueue(queue) {
-  elements.readyQueue.innerHTML = "";
-  if (!queue.length) {
-    elements.readyQueue.classList.add("empty");
-    elements.readyQueue.textContent = "Ready queue is empty";
-    elements.queueCountLabel.textContent = "0 processes";
+function renderQueue(list) {
+  el.readyQueue.innerHTML = "";
+  el.queueCountLabel.textContent = `${list.length} process${list.length === 1 ? "" : "es"}`;
+  if (!list.length) {
+    el.readyQueue.className = "queue-strip empty";
+    el.readyQueue.textContent = "Ready queue is empty";
     return;
   }
-
-  elements.readyQueue.classList.remove("empty");
-  elements.queueCountLabel.textContent = `${queue.length} process${queue.length === 1 ? "" : "es"}`;
-  queue.forEach((process) => {
+  el.readyQueue.className = "queue-strip";
+  list.forEach((p) => {
     const pill = document.createElement("div");
     pill.className = "queue-pill";
-    pill.style.background = getProcessColor(process.id);
-    pill.textContent = `${process.id} | RT ${process.remaining}`;
-    elements.readyQueue.appendChild(pill);
+    pill.style.background = color(p.id);
+    pill.textContent = `${p.id} | RT ${p.remaining}`;
+    el.readyQueue.appendChild(pill);
   });
 }
 
 function renderCpu(frame) {
-  elements.currentTimeLabel.textContent = `Time: ${frame.time}`;
-  if (!frame.running) {
-    elements.cpuCard.classList.add("idle");
-    elements.cpuCard.classList.remove("active");
-    elements.cpuProcessLabel.textContent = "Idle";
-    elements.cpuMetaLabel.textContent = "No process is ready right now";
+  el.currentTimeLabel.textContent = `Time: ${frame?.time ?? 0}`;
+  if (!frame?.running) {
+    el.cpuCard.className = "cpu-card idle";
+    el.cpuProcessLabel.textContent = "Idle";
+    el.cpuMetaLabel.textContent = "Waiting for simulation to begin";
     return;
   }
-
-  elements.cpuCard.classList.remove("idle");
-  elements.cpuCard.classList.add("active");
-  elements.cpuProcessLabel.textContent = frame.running.id;
-  elements.cpuMetaLabel.textContent = `Remaining Burst Time: ${frame.running.remaining}`;
+  el.cpuCard.className = "cpu-card active";
+  el.cpuProcessLabel.textContent = frame.running.id;
+  el.cpuMetaLabel.textContent = `Remaining Burst Time: ${frame.running.remaining}`;
 }
 
-function renderGantt(segments, activeFrameIndex = null) {
-  elements.ganttChart.innerHTML = "";
-  let elapsedFrames = 0;
-
-  segments.forEach((segment) => {
-    const duration = segment.end - segment.start;
+function renderGantt(list, active = -1) {
+  el.ganttChart.innerHTML = "";
+  let start = 0;
+  list.forEach((s) => {
     const block = document.createElement("div");
     block.className = "gantt-block";
-    block.style.background = segment.processId === "IDLE" ? "var(--idle)" : getProcessColor(segment.processId);
-    block.style.minWidth = `${Math.max(86, duration * 44)}px`;
-
-    const isActive =
-      activeFrameIndex !== null &&
-      activeFrameIndex >= elapsedFrames &&
-      activeFrameIndex < elapsedFrames + duration;
-    if (isActive) block.classList.add("active");
-
+    if (active >= start && active < start + s.end - s.start) block.classList.add("active");
+    block.style.background = s.id === "IDLE" ? "var(--idle)" : color(s.id);
+    block.style.minWidth = `${Math.max(86, (s.end - s.start) * 44)}px`;
     block.innerHTML = `
-      <div class="gantt-process">${segmentLabel(segment.processId)}</div>
-      ${segment.contextSwitch ? '<div class="context-tag">Switch</div>' : ""}
-      <div class="gantt-note">${duration} unit${duration === 1 ? "" : "s"}</div>
-      <div class="gantt-range"><span>${segment.start}</span><span>${segment.end}</span></div>
+      <div class="gantt-process">${s.id === "IDLE" ? "Idle" : s.id}</div>
+      <div class="gantt-note">${s.end - s.start} unit${s.end - s.start === 1 ? "" : "s"}</div>
+      <div class="gantt-range"><span>${s.start}</span><span>${s.end}</span></div>
     `;
-    elements.ganttChart.appendChild(block);
-    elapsedFrames += duration;
+    el.ganttChart.appendChild(block);
+    start += s.end - s.start;
   });
 }
 
 function renderMetrics(result) {
-  elements.metricsTableBody.innerHTML = "";
-  result.processes.forEach((process) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${process.id}</td>
-      <td>${process.arrival}</td>
-      <td>${process.burst}</td>
-      <td>${process.priority}</td>
-      <td>${process.completion}</td>
-      <td>${process.turnaround}</td>
-      <td>${process.waiting}</td>
-    `;
-    elements.metricsTableBody.appendChild(row);
-  });
-
-  const { avgWaiting, avgTurnaround, totalCompletion } = result.summary;
-  const cards = [
-    ["Average Waiting Time", avgWaiting.toFixed(2)],
-    ["Average Turnaround Time", avgTurnaround.toFixed(2)],
-    ["Total Completion Time", totalCompletion.toFixed(0)]
-  ];
-  elements.summaryCards.innerHTML = cards
-    .map(([label, value]) => `<div class="summary-card"><span>${label}</span><strong>${value}</strong></div>`)
-    .join("");
+  el.metricsTableBody.innerHTML = result.processes.map((p) => `
+    <tr>
+      <td>${p.id}</td>
+      <td>${p.arrival}</td>
+      <td>${p.burst}</td>
+      <td>${p.priority}</td>
+      <td>${p.completion}</td>
+      <td>${p.turnaround}</td>
+      <td>${p.waiting}</td>
+    </tr>
+  `).join("");
+  el.summaryCards.innerHTML = [
+    ["Average Waiting Time", result.summary.avgWaiting.toFixed(2)],
+    ["Average Turnaround Time", result.summary.avgTurnaround.toFixed(2)],
+    ["Total Completion Time", result.summary.totalCompletion]
+  ].map(([label, value]) => `<div class="summary-card"><span>${label}</span><strong>${value}</strong></div>`).join("");
 }
 
-function renderComparison(processes, timeQuantum) {
-  if (!elements.comparisonMode.checked) {
-    elements.comparisonResults.className = "comparison-results empty-state";
-    elements.comparisonResults.textContent = "Enable Comparison Mode and start the simulation to run every algorithm on the same input.";
-    return;
-  }
-
-  const results = comparisonAlgorithms.map((algorithm) =>
-    simulateAlgorithm(algorithm, processes, timeQuantum)
-  );
-
-  const bestWaiting = Math.min(...results.map((result) => result.summary.avgWaiting));
-  elements.comparisonResults.className = "comparison-results";
-  elements.comparisonResults.innerHTML = "";
-
-  results.forEach((result) => {
-    const card = document.createElement("div");
-    card.className = "comparison-card";
-    if (Math.abs(result.summary.avgWaiting - bestWaiting) < 0.0001) {
-      card.classList.add("best");
-    }
-
-    const miniGantt = result.segments
-      .map((segment) => `
-        <div class="mini-block" style="background:${segment.processId === "IDLE" ? "var(--idle)" : getProcessColor(segment.processId)}">
-          ${segmentLabel(segment.processId)}<br>${segment.start}-${segment.end}
-        </div>
-      `)
-      .join("");
-
-    card.innerHTML = `
-      <h3>${algorithmLabels[result.algorithm]}${card.classList.contains("best") ? " • Best WT" : ""}</h3>
-      <div class="comparison-metric">Average Waiting Time: ${result.summary.avgWaiting.toFixed(2)}</div>
-      <div class="comparison-metric">Average Turnaround Time: ${result.summary.avgTurnaround.toFixed(2)}</div>
-      <div class="mini-gantt">${miniGantt}</div>
-    `;
-    elements.comparisonResults.appendChild(card);
-  });
+function delay() {
+  return ({ 1: 1400, 2: 1000, 3: 700, 4: 400, 5: 180 })[Number(el.speedControl.value)] || 700;
 }
 
-function playbackDelay() {
-  const value = Number(elements.speedControl.value);
-  const map = { 1: 1400, 2: 1000, 3: 700, 4: 400, 5: 180 };
-  return map[value] || 700;
+function stop() {
+  clearTimeout(state.timer);
+  state.timer = null;
 }
 
-function stopPlayback() {
-  if (state.timer) {
-    clearTimeout(state.timer);
-    state.timer = null;
-  }
+function resetView() {
+  stop();
+  state.paused = false;
+  state.running = false;
+  state.frame = 0;
+  state.result = null;
+  renderCpu();
+  renderQueue([]);
+  renderGantt([]);
+  el.metricsTableBody.innerHTML = "";
+  el.summaryCards.innerHTML = "";
+  status("Ready");
 }
 
-function renderPlaybackIdleState() {
-  elements.currentTimeLabel.textContent = "Time: 0";
-  elements.cpuCard.className = "cpu-card idle";
-  elements.cpuProcessLabel.textContent = "Idle";
-  elements.cpuMetaLabel.textContent = "Waiting for simulation to begin";
-  elements.readyQueue.className = "queue-strip empty";
-  elements.readyQueue.textContent = "Ready queue is empty";
-  elements.queueCountLabel.textContent = "0 processes";
-  renderGantt(state.currentResult?.segments ?? []);
-}
-
-function resetLiveView() {
-  stopPlayback();
-  state.isPaused = false;
-  state.isRunning = false;
-  state.frames = [];
-  state.currentFrameIndex = 0;
-  state.currentResult = null;
-  renderPlaybackIdleState();
-  elements.metricsTableBody.innerHTML = "";
-  elements.summaryCards.innerHTML = "";
-  elements.comparisonResults.className = "comparison-results empty-state";
-  elements.comparisonResults.textContent = "Enable Comparison Mode and start the simulation to run every algorithm on the same input.";
-  setStatus("Ready");
-}
-
-function renderFrameAt(index) {
-  const frame = state.frames[index];
-  if (!frame || !state.currentResult) return;
-
+function showFrame(i) {
+  const frame = state.result?.frames[i];
+  if (!frame) return;
   renderCpu(frame);
   renderQueue(frame.queue);
-  renderGantt(state.currentResult.segments, index);
+  renderGantt(state.result.segments, i);
 }
 
-function playNextFrame() {
-  if (state.isPaused || !state.isRunning) return;
-  const frame = state.frames[state.currentFrameIndex];
-
-  if (!frame) {
-    setStatus("Completed");
-    state.isRunning = false;
+function tick() {
+  if (!state.running || state.paused) return;
+  if (state.frame >= state.result.frames.length) {
+    state.running = false;
+    status("Completed");
     return;
   }
-
-  renderFrameAt(state.currentFrameIndex);
-  setStatus(`Running - ${state.currentResult.algorithm}`);
-  state.currentFrameIndex += 1;
-  state.timer = setTimeout(playNextFrame, playbackDelay());
+  showFrame(state.frame++);
+  status(`Running - ${state.result.algorithm}`);
+  state.timer = setTimeout(tick, delay());
 }
 
-function startSimulation() {
-  const processes = getProcessesFromTable();
-  if (!processes.length) return;
-
-  stopPlayback();
-  const algorithm = elements.algorithmSelect.value;
-  const timeQuantum = Math.max(1, Number(elements.timeQuantum.value) || 1);
-  const result = simulateAlgorithm(algorithm, processes, timeQuantum);
-
-  state.currentResult = result;
-  state.frames = result.frames;
-  state.currentFrameIndex = 0;
-  state.isPaused = false;
-  state.isRunning = true;
-
-  elements.algorithmBadge.textContent = `Algorithm: ${algorithmLabels[algorithm]}`;
-  renderMetrics(result);
-  renderComparison(processes, timeQuantum);
-  renderGantt(result.segments, null);
-  playNextFrame();
+function start() {
+  const list = readTable();
+  if (!list.length) return;
+  state.result = simulate(el.algorithmSelect.value, list, Math.max(1, Number(el.timeQuantum.value) || 1));
+  state.frame = 0;
+  state.paused = false;
+  state.running = true;
+  el.algorithmBadge.textContent = `Algorithm: ${names[state.result.algorithm]}`;
+  renderMetrics(state.result);
+  renderGantt(state.result.segments);
+  stop();
+  tick();
 }
 
-function pauseSimulation() {
-  if (!state.isRunning) return;
-  state.isPaused = true;
-  stopPlayback();
-  setStatus("Paused");
-}
-
-function resumeSimulation() {
-  if (!state.currentResult || !state.isPaused) return;
-  state.isPaused = false;
-  state.isRunning = true;
-  playNextFrame();
-}
-
-function showPreviousFrame() {
-  if (!state.currentResult || state.currentFrameIndex === 0) return;
-
-  stopPlayback();
-  state.isPaused = true;
-  state.isRunning = false;
-
-  if (state.currentFrameIndex === 1) {
-    state.currentFrameIndex = 0;
-    renderPlaybackIdleState();
-    setStatus(`Paused - ${state.currentResult.algorithm}`);
-    return;
-  }
-
-  const targetIndex = state.currentFrameIndex - 2;
-  state.currentFrameIndex = targetIndex + 1;
-  renderFrameAt(targetIndex);
-  setStatus(`Paused - ${state.currentResult.algorithm}`);
-}
-
-function randomProcesses() {
-  const count = Number(elements.processCount.value) || 5;
-  const processes = Array.from({ length: count }, (_, index) => ({
-    id: `P${index + 1}`,
-    arrival: Math.floor(Math.random() * Math.min(count + 2, 8)),
+function randomize() {
+  const n = Math.max(1, Number(el.processCount.value) || 5);
+  const list = Array.from({ length: n }, (_, i) => ({
+    id: `P${i + 1}`,
+    arrival: Math.floor(Math.random() * Math.min(n + 2, 8)),
     burst: Math.floor(Math.random() * 8) + 1,
-    priority: Math.floor(Math.random() * 5) + 1
-  }));
-  processes.sort(compareByArrivalFCFS);
-  renderTable(processes);
+    priority: Math.floor(Math.random() * 5) + 1,
+    i
+  })).sort(byArrival);
+  renderTable(list);
 }
 
-function initialize() {
-  renderTable(sampleProcesses);
-  resetLiveView();
+renderTable(sample);
+resetView();
+el.algorithmBadge.textContent = `Algorithm: ${names[el.algorithmSelect.value]}`;
 
-  elements.loadSampleBtn.addEventListener("click", () => {
-    renderTable(sampleProcesses);
-    resetLiveView();
-  });
-  elements.applyCountBtn.addEventListener("click", adjustRowsToCount);
-  elements.addRowBtn.addEventListener("click", () => {
-    elements.processTableBody.appendChild(createRow());
-    syncProcessCount();
-  });
-  elements.randomBtn.addEventListener("click", () => {
-    randomProcesses();
-    resetLiveView();
-  });
-  elements.startBtn.addEventListener("click", startSimulation);
-  elements.previousBtn.addEventListener("click", showPreviousFrame);
-  elements.pauseBtn.addEventListener("click", pauseSimulation);
-  elements.resumeBtn.addEventListener("click", resumeSimulation);
-  elements.resetBtn.addEventListener("click", resetLiveView);
-  elements.algorithmSelect.addEventListener("change", () => {
-    elements.algorithmBadge.textContent = `Algorithm: ${algorithmLabels[elements.algorithmSelect.value]}`;
-    resetLiveView();
-  });
-  elements.comparisonMode.addEventListener("change", () => {
-    if (state.currentResult) {
-      renderComparison(getProcessesFromTable(), Math.max(1, Number(elements.timeQuantum.value) || 1));
-    }
-  });
-  elements.speedControl.addEventListener("input", () => {
-    if (state.isRunning && !state.isPaused) {
-      stopPlayback();
-      playNextFrame();
-    }
-  });
-
-  elements.algorithmBadge.textContent = `Algorithm: ${algorithmLabels[elements.algorithmSelect.value]}`;
-}
-
-initialize();
-
+el.loadSampleBtn.onclick = () => { renderTable(sample); resetView(); };
+el.applyCountBtn.onclick = resizeTable;
+el.addRowBtn.onclick = () => { el.processTableBody.appendChild(row()); syncCount(); };
+el.randomBtn.onclick = () => { randomize(); resetView(); };
+el.startBtn.onclick = start;
+el.pauseBtn.onclick = () => { if (state.running) { state.paused = true; stop(); status("Paused"); } };
+el.resumeBtn.onclick = () => { if (state.result && state.paused) { state.paused = false; state.running = true; tick(); } };
+el.previousBtn.onclick = () => {
+  if (!state.result || state.frame === 0) return;
+  stop();
+  state.running = false;
+  state.paused = true;
+  const i = Math.max(0, state.frame - 2);
+  state.frame = i + 1;
+  i ? showFrame(i) : (renderCpu(), renderQueue([]), renderGantt(state.result.segments));
+  status(`Paused - ${state.result.algorithm}`);
+};
+el.resetBtn.onclick = resetView;
+el.algorithmSelect.onchange = () => {
+  el.algorithmBadge.textContent = `Algorithm: ${names[el.algorithmSelect.value]}`;
+  resetView();
+};
+el.speedControl.oninput = () => {
+  if (state.running && !state.paused) {
+    stop();
+    tick();
+  }
+};

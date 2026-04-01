@@ -17,7 +17,7 @@
         <h1>Process Scheduling Algorithms Simulation</h1>
         <p class="hero-copy">
           Explore how CPU scheduling works with animated timelines, live ready queues,
-          side-by-side comparisons, and animated timeline playback.
+          and timeline playback.
         </p>
       </div>
       <div class="hero-actions">
@@ -97,11 +97,6 @@
         </div>
 
         <div class="control-grid">
-          <label class="toggle-card">
-            <span>Comparison Mode</span>
-            <input id="comparisonMode" type="checkbox">
-          </label>
-
           <label class="speed-card">
             <span>Speed Control</span>
             <input id="speedControl" type="range" min="1" max="5" step="1" value="3">
@@ -174,18 +169,6 @@
             </thead>
             <tbody id="metricsTableBody"></tbody>
           </table>
-        </div>
-      </section>
-
-      <section class="panel comparison-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="section-kicker">Comparison</p>
-            <h2>All Algorithms</h2>
-          </div>
-        </div>
-        <div id="comparisonResults" class="comparison-results empty-state">
-          Enable Comparison Mode and start the simulation to run every algorithm on the same input.
         </div>
       </section>
     </main>
