@@ -16,6 +16,9 @@ const el = {
   loadSampleBtn: document.getElementById("loadSampleBtn"),
   applyCountBtn: document.getElementById("applyCountBtn"),
   addRowBtn: document.getElementById("addRowBtn"),
+  themeToggleBtn: document.getElementById("themeToggleBtn"),
+  themeToggleIcon: document.getElementById("themeToggleIcon"),
+  themeToggleText: document.getElementById("themeToggleText"),
 
   ganttChart: document.getElementById("ganttChart"),
   readyQueue: document.getElementById("readyQueue"),
@@ -33,6 +36,7 @@ const el = {
   statusBadge: document.getElementById("statusBadge")
 };
 const state = { timer: null, paused: false, running: false, frame: 0, result: null }, colors = {}, delay = 1400;
+const themeStorageKey = "cpu-scheduling-theme";
 const cmp = {
   arrival: (a, b) => a.arrival - b.arrival || a.i - b.i,
   burst: (a, b) => a.burst - b.burst || cmp.arrival(a, b),
@@ -44,6 +48,21 @@ const color = (id) => (colors[id] ??= `hsl(${Object.keys(colors).length * 61 % 3
 const setStatus = (text) => { el.statusBadge.textContent = text; };
 const syncCount = () => { el.processCount.value = el.processTableBody.children.length || 1; };
 const stop = () => { clearTimeout(state.timer); state.timer = null; };
+const systemTheme = () => window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+function updateThemeButton(theme) {
+  const dark = theme === "dark";
+  el.themeToggleBtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  el.themeToggleIcon.textContent = dark ? "☀️" : "🌙";
+  el.themeToggleText.textContent = dark ? "Light Mode" : "Dark Mode";
+}
+function applyTheme(theme, persist = true) {
+  document.documentElement.setAttribute("data-theme", theme);
+  updateThemeButton(theme);
+  if (persist) localStorage.setItem(themeStorageKey, theme);
+}
+function initTheme() {
+  applyTheme(localStorage.getItem(themeStorageKey) || systemTheme(), false);
+}
 function row(p = {}, n = el.processTableBody.children.length + 1) {
   const tr = document.createElement("tr");
   tr.innerHTML = `<td><input type="text" class="pid-input" value="${p.id ?? `P${n}`}"></td>
@@ -208,11 +227,16 @@ const start = () => {
 };
 
 renderTable(sample);
+initTheme();
 resetView();
 el.algorithmBadge.textContent = `Algorithm: ${names[el.algorithmSelect.value]}`;
 el.loadSampleBtn.onclick = () => { renderTable(sample); resetView(); };
 el.applyCountBtn.onclick = resizeTable;
 el.addRowBtn.onclick = () => { el.processTableBody.appendChild(row()); syncCount(); };
+el.themeToggleBtn.onclick = () => {
+  const nextTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+};
 el.startBtn.onclick = start;
 el.pauseBtn.onclick = () => { if (state.running) { state.paused = true; stop(); setStatus("Paused"); } };
 el.resumeBtn.onclick = () => { if (state.result && state.paused) { state.paused = false; state.running = true; tick(); } };
